@@ -9,8 +9,8 @@ services:
       - 8022:22
     restart: always
     networks:
-      - quivr_common
+      - quivr_quivr_common
 
 networks:
-  quivr_common:
+  quivr_quivr_common:
     external: true

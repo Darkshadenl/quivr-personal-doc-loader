@@ -1,8 +1,10 @@
 """ The script containing the entry point for the application. """
+import asyncio
 import os
 from dotenv import load_dotenv
 from confluence_extractor import ConfluenceExtractor, ConfluenceConfiguration
 from document_uploader import DocumentUploader
+import json
 
 # Load environment variables from .env file
 load_dotenv()
@@ -11,38 +13,47 @@ def main():
     """ The main entry point for the confluence_extractor application. """
 
     #Get specific environment variables
-    sitename = os.getenv("ATLASSIAN_SITENAME")
-    username = os.getenv('ATLASSIAN_USERNAME')
-    api_key = os.getenv('ATLASSIAN_API_KEY')
-    space_key = os.getenv('ATLASSIAN_SPACE_KEY')
-    download_folder_base = os.getenv('CONFLUENCE_CONTENT_FOLDER')
+    brain = os.getenv('BRAIN')
+    print(f"Brain: {brain}")
 
     # Note: The Quivr API key expires in 24 hours. You will need to update it.
     quivr_api_key = os.getenv('QUIVR_API_KEY')
     quivr_backend_url = os.getenv('QUIVR_BACKEND_URL')
 
-    # Location for storing extracted Confluence content for confluence space
-    confluence_download_location = download_folder_base + '-' + space_key
-    if not os.path.exists(confluence_download_location):
-        os.makedirs(confluence_download_location)
+    user_path = get_user_path()
 
-    # Create a ConfluenceConfiguration object
-    confluence_config = ConfluenceConfiguration(sitename, username, api_key, space_key)
-
-    extractor = ConfluenceExtractor(
-        confluence_config,
-        confluence_download_location,
-    )
-    # Example of extracting a single page by id
-    # extractor.process_page({'id': 'PAGE_ID', 'title': ''}, include_attachments=True)
-
-    # Extract all pages from the confluence space
-    extractor.extract_all_pages(include_attachments=True, max_pages=2000)
+    generate_metadata(user_path, brain)
 
     # Create a DocumentUploader object
     uploader = DocumentUploader(quivr_api_key, quivr_backend_url)
-    uploader.process_directory(confluence_download_location)
+    uploader.process_directory(user_path)
 
-# Execute the following code only if the script is run directly, not imported.
+
+def get_user_path():
+    user_path = input("Geef het pad op (bijv. /Users/quintenmeijboom/Documents/Repos): ")
+    return user_path
+
+
+def generate_metadata(path, brain):
+    metadata_file_path = os.path.join(path, "__metadata__.jsonl")
+    with open(metadata_file_path, "w", encoding='utf-8') as metadata_file:
+        for root, _, files in os.walk(path):
+            for file_name in files:
+                if file_name == "__metadata__.jsonl":
+                    continue
+
+                # Check of het bestand een .docx extensie heeft
+                if file_name.endswith('.docx'):
+                    file_path = os.path.join(root, file_name)
+                    metadata = {
+                        "file_path": file_path,
+                        "auteur": "Quinten",
+                        "brain_id": brain
+                    }
+                    metadata_line = json.dumps(metadata)
+                    metadata_file.write(f"{metadata_line}\n")
+
+
+
 if __name__ == '__main__':
     main()
